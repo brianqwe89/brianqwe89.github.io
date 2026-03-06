@@ -1209,9 +1209,10 @@
       return picked;
     }
 
-    // Score how "gel-like" a candidate region is using color saturation and variance
+    // Score how "gel-like" a candidate region is using blue/purple tint
+    // Gels (Coomassie etc.) have blue/purple tint; backgrounds are achromatic
     function scoreGelRegion(top,bot,left,right){
-      let sumI=0,sumI2=0,coloredCount=0,total=0;
+      let sumBlueEx=0,sumChroma=0,sumI=0,sumI2=0,total=0;
       const stepY=Math.max(1,Math.round((bot-top)/40));
       const stepX=Math.max(1,Math.round((right-left)/40));
       for(let y=top;y<=bot;y+=stepY){
@@ -1220,21 +1221,31 @@
           const r=d[idx],g=d[idx+1],b=d[idx+2];
           const v=gray[y*w+x];
           sumI+=v;sumI2+=v*v;
-          const mx=Math.max(r,g,b),mn=Math.min(r,g,b);
-          if(mx>0&&(mx-mn)/mx>0.04&&mx>30&&mx<250) coloredCount++;
+          // Blue excess: positive for blue/purple gel, ~0 for neutral background
+          sumBlueEx+=b-(r+g)/2;
+          // Chroma: color deviation from neutral gray (handles non-blue stains too)
+          sumChroma+=Math.max(r,g,b)-Math.min(r,g,b);
           total++;
         }
       }
       if(total===0) return -Infinity;
-      const mean=sumI/total;
-      const variance=sumI2/total-mean*mean;
-      const colorFrac=coloredCount/total;
-      return colorFrac*100+Math.sqrt(variance)*0.5;
+      const meanI=sumI/total;
+      const variance=sumI2/total-meanI*meanI;
+      const meanBlueEx=sumBlueEx/total;
+      const meanChroma=sumChroma/total;
+      // Primary: avg blue tint density (gel region has higher concentration)
+      // Secondary: avg chromaticity (colored gel vs achromatic paper/background)
+      // Tertiary: intensity variance (band patterns)
+      let score=meanBlueEx*3+meanChroma*1.5+Math.sqrt(variance)*0.3;
+      // Penalize extreme brightness (white paper) or darkness (black background)
+      if(meanI>235) score-=30;
+      if(meanI<25) score-=30;
+      return score;
     }
 
     // Find up to 4 candidate peaks on each axis
-    const hPeaks=findTopNPeaks(sRowH,4,Math.round(h*0.08));
-    const vPeaks=findTopNPeaks(sColV,4,Math.round(w*0.08));
+    const hPeaks=findTopNPeaks(sRowH,4,Math.round(h*0.12));
+    const vPeaks=findTopNPeaks(sColV,4,Math.round(w*0.12));
 
     let gelTop=0,gelBot=h-1,gelLeft=0,gelRight=w-1;
 
