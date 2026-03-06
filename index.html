@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FORLAB - 번호판 자동 크롭 도구 | AI 기반 이미지 처리</title>
-<meta name="description" content="FORLAB Plate Cropper는 AI 기반 Hough Transform 알고리즘으로 차량 번호판을 자동 감지하고 크롭하는 무료 온라인 도구입니다. 다중 이미지 일괄 처리를 지원합니다.">
-<meta name="keywords" content="번호판 크롭, plate cropper, 이미지 처리, AI 감지, 번호판 자동 인식, FORLAB">
+<title>FORLAB - 번호판 & 겔 이미지 크롭 도구 | AI 기반 이미지 처리</title>
+<meta name="description" content="FORLAB은 AI 기반으로 차량 번호판을 자동 감지·크롭하고, 겔 전기영동 이미지를 영역 선택·크롭하는 무료 온라인 도구입니다.">
+<meta name="keywords" content="번호판 크롭, plate cropper, 겔 크롭, gel cropper, 이미지 처리, AI 감지, 번호판 자동 인식, FORLAB">
 <meta name="author" content="FORLAB">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://brianqwe89.github.io/">
@@ -275,7 +275,8 @@
 <!-- Site Navigation -->
 <nav class="site-nav">
   <a href="#" class="active" data-page="home">홈</a>
-  <a href="#tool" data-page="tool">도구</a>
+  <a href="#tool" data-page="tool">플레이트</a>
+  <a href="#gel" data-page="gel">겔 크롭</a>
   <a href="#guide" data-page="guide">사용법</a>
   <a href="#about" data-page="about">소개</a>
   <a href="#privacy" data-page="privacy">개인정보처리방침</a>
@@ -284,18 +285,34 @@
 <!-- ===== HOME PAGE ===== -->
 <section class="page-section visible" id="page-home">
   <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;gap:32px">
-    <h2 style="font-size:28px;margin:0">FORLAB Plate Cropper</h2>
-    <p style="color:var(--muted);font-size:14px;margin:0">AI 기반 번호판 자동 감지 & 크롭 도구</p>
+    <h2 style="font-size:28px;margin:0">FORLAB Image Tools</h2>
+    <p style="color:var(--muted);font-size:14px;margin:0">AI 기반 이미지 자동 감지 & 크롭 도구</p>
 
-    <a href="#tool" data-page="tool" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:16px;padding:32px 48px;border-radius:16px;background:var(--surface);border:2px solid var(--border);transition:all .2s;cursor:pointer" onmouseover="this.style.borderColor='#a78bfa';this.style.transform='translateY(-4px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
-      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="url(#iconGrad)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <defs><linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7dd3fc"/><stop offset="50%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#f472b6"/></linearGradient></defs>
-        <rect x="2" y="6" width="20" height="12" rx="2"/>
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M6 6V4M18 6V4M6 18v2M18 18v2"/>
-      </svg>
-      <span style="font-size:16px;font-weight:700;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">플레이트 크롭 시작</span>
-    </a>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center">
+      <a href="#tool" data-page="tool" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:16px;padding:32px 40px;border-radius:16px;background:var(--surface);border:2px solid var(--border);transition:all .2s;cursor:pointer;width:220px" onmouseover="this.style.borderColor='#a78bfa';this.style.transform='translateY(-4px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="url(#iconGrad)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <defs><linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7dd3fc"/><stop offset="50%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#f472b6"/></linearGradient></defs>
+          <rect x="2" y="6" width="20" height="12" rx="2"/>
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M6 6V4M18 6V4M6 18v2M18 18v2"/>
+        </svg>
+        <span style="font-size:16px;font-weight:700;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">플레이트 크롭</span>
+        <span style="color:var(--muted);font-size:11px">번호판 자동 감지 & 크롭</span>
+      </a>
+
+      <a href="#gel" data-page="gel" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:16px;padding:32px 40px;border-radius:16px;background:var(--surface);border:2px solid var(--border);transition:all .2s;cursor:pointer;width:220px" onmouseover="this.style.borderColor='#a78bfa';this.style.transform='translateY(-4px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="url(#iconGrad2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <defs><linearGradient id="iconGrad2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7dd3fc"/><stop offset="50%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#f472b6"/></linearGradient></defs>
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <line x1="7" y1="6" x2="7" y2="18"/>
+          <line x1="10.5" y1="6" x2="10.5" y2="18"/>
+          <line x1="14" y1="6" x2="14" y2="18"/>
+          <line x1="17.5" y1="6" x2="17.5" y2="18"/>
+        </svg>
+        <span style="font-size:16px;font-weight:700;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">겔 크롭</span>
+        <span style="color:var(--muted);font-size:11px">겔 이미지 영역 선택 & 크롭</span>
+      </a>
+    </div>
 
     <p style="color:var(--muted);font-size:11px;margin:0">브라우저에서 실행 · 서버 업로드 없음 · 무료</p>
   </div>
@@ -512,6 +529,75 @@
 
 </div><!-- end app-content -->
 
+<!-- ===== GEL CROP PAGE (App) ===== -->
+<div class="app-content" id="page-gel">
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <h1>FORLAB</h1>
+    <span style="font-size:11px;color:var(--muted)">Gel Cropper</span>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar" id="gelToolbar">
+  <div class="toolbar-group">
+    <button class="btn btn-outline btn-sm" id="gelSelectBtn" title="사각형 영역 선택">□ 영역 선택</button>
+    <button class="btn btn-primary btn-sm" id="gelCropBtn" disabled>크롭 ✓</button>
+    <button class="btn btn-ghost btn-sm" id="gelClearSelBtn">선택 해제</button>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="toolbar-group">
+    <button class="btn btn-ghost btn-sm" id="gelAddMoreBtn">+ 사진 추가</button>
+    <input type="file" accept="image/*" multiple id="gelAddMoreInput" style="display:none">
+    <button class="btn btn-ghost btn-sm" style="color:var(--danger)" id="gelResetBtn">초기화</button>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <!-- Left -->
+  <div class="left-panel">
+    <div class="thumb-strip" id="gelThumbStrip"></div>
+    <div class="canvas-area" id="gelCanvasArea">
+      <canvas id="gelCanvas"></canvas>
+      <!-- Upload overlay -->
+      <div class="upload-overlay" id="gelUploadOverlay">
+        <label class="upload-box" id="gelUploadBox">
+          <input type="file" accept="image/*" multiple id="gelFileInput">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6b7d8e" stroke-width="1.5">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+          </svg>
+          <span style="font-size:12px">겔 이미지를 선택하거나 드래그</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: results -->
+  <div class="resizer" id="gelResizer"></div>
+  <div class="right-panel" id="gelRightPanel">
+    <div class="right-header">
+      <span>크롭 결과</span>
+      <span id="gelResultCount" style="color:var(--muted);font-weight:400">0장</span>
+    </div>
+    <div class="result-scroll" id="gelResultScroll">
+      <div style="color:var(--muted);font-size:11px;text-align:center;padding:40px 8px;line-height:1.6">
+        이미지에서 영역을 선택한 후<br>"크롭 ✓" 버튼을 누르면<br>여기에 결과가 표시됩니다
+      </div>
+    </div>
+    <div class="right-footer">
+      <button class="btn btn-primary" id="gelDownloadAllBtn" disabled style="width:100%;font-size:11px">전체 다운로드</button>
+      <button class="btn btn-outline" id="gelShareAllBtn" disabled style="width:100%;font-size:11px">전체 공유</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- end gel app-content -->
+
 <!-- Site Footer -->
 <footer class="site-footer">
   <span>&copy; 2026 FORLAB. All rights reserved.</span>
@@ -529,6 +615,7 @@
   const pages={
     home:document.getElementById('page-home'),
     tool:document.getElementById('page-tool'),
+    gel:document.getElementById('page-gel'),
     guide:document.getElementById('page-guide'),
     about:document.getElementById('page-about'),
     privacy:document.getElementById('page-privacy'),
@@ -543,7 +630,7 @@
     });
     navLinks.forEach(a=>a.classList.toggle('active',a.dataset.page===name));
     // adjust body overflow for tool page
-    document.body.style.overflow=(name==='tool')?'hidden':'auto';
+    document.body.style.overflow=(name==='tool'||name==='gel')?'hidden':'auto';
   }
   navLinks.forEach(a=>a.addEventListener('click',function(e){
     e.preventDefault();showPage(this.dataset.page);
@@ -1018,6 +1105,386 @@
     if(!images.length)return;
     const item=images[currentIdx];if(!item)return;
     computeLayout(item.img);draw();
+  });
+})();
+
+// === GEL CROPPER ===
+(function(){
+  let gelImages=[];
+  let gelCurrentIdx=0;
+  let gelResults=[];
+  let gelScale=1,gelOffX=0,gelOffY=0,gelDispW=0,gelDispH=0;
+  let selRect=null; // {x1,y1,x2,y2} in image coords
+  let selDrag=null; // null | {type:'draw'|'move'|'resize-*', ...}
+  let selectMode=true;
+
+  const $=id=>document.getElementById(id);
+  const gelCanvas=$('gelCanvas'),gctx=gelCanvas.getContext('2d');
+  const gelCanvasArea=$('gelCanvasArea');
+
+  function showToast(msg){
+    const t=$('toast');t.textContent=msg;t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),1800);
+  }
+
+  function gelComputeLayout(img){
+    const rect=gelCanvasArea.getBoundingClientRect();
+    const iw=img.naturalWidth,ih=img.naturalHeight;
+    gelScale=Math.min(rect.width/iw,rect.height/ih,1);
+    gelDispW=Math.round(iw*gelScale);gelDispH=Math.round(ih*gelScale);
+    gelOffX=Math.round((rect.width-gelDispW)/2);gelOffY=Math.round((rect.height-gelDispH)/2);
+    gelCanvas.width=rect.width;gelCanvas.height=rect.height;
+    gelCanvas.style.width=rect.width+'px';gelCanvas.style.height=rect.height+'px';
+  }
+
+  function gelToImgCoords(cx,cy){
+    const rect=gelCanvasArea.getBoundingClientRect();
+    return{x:(cx-rect.left-gelOffX)/gelScale,y:(cy-rect.top-gelOffY)/gelScale};
+  }
+
+  function gelDraw(){
+    const item=gelImages[gelCurrentIdx];
+    if(!item||!item.img)return;
+    const cw=gelCanvas.width,ch=gelCanvas.height;
+    gctx.clearRect(0,0,cw,ch);
+    gctx.drawImage(item.img,gelOffX,gelOffY,gelDispW,gelDispH);
+
+    // Draw selection rectangle
+    if(selRect){
+      const x1=selRect.x1*gelScale+gelOffX,y1=selRect.y1*gelScale+gelOffY;
+      const x2=selRect.x2*gelScale+gelOffX,y2=selRect.y2*gelScale+gelOffY;
+      const rx=Math.min(x1,x2),ry=Math.min(y1,y2);
+      const rw=Math.abs(x2-x1),rh=Math.abs(y2-y1);
+
+      // Dim outside
+      gctx.save();
+      gctx.fillStyle='rgba(0,0,0,0.45)';
+      gctx.fillRect(0,0,cw,ry);
+      gctx.fillRect(0,ry,rx,rh);
+      gctx.fillRect(rx+rw,ry,cw-rx-rw,rh);
+      gctx.fillRect(0,ry+rh,cw,ch-ry-rh);
+      gctx.restore();
+
+      // Selection border
+      gctx.save();
+      gctx.setLineDash([6,4]);
+      gctx.strokeStyle='#a78bfa';gctx.lineWidth=2;
+      gctx.strokeRect(rx,ry,rw,rh);
+      gctx.restore();
+
+      // Corner handles
+      const handles=[[rx,ry],[rx+rw,ry],[rx,ry+rh],[rx+rw,ry+rh]];
+      handles.forEach(([hx,hy])=>{
+        gctx.beginPath();gctx.arc(hx,hy,6,0,Math.PI*2);
+        gctx.fillStyle='#f472b6';gctx.fill();
+        gctx.strokeStyle='#0a0f14';gctx.lineWidth=2;gctx.stroke();
+      });
+
+      // Size label
+      const imgW=Math.round(Math.abs(selRect.x2-selRect.x1));
+      const imgH=Math.round(Math.abs(selRect.y2-selRect.y1));
+      gctx.save();gctx.font='11px JetBrains Mono';
+      gctx.fillStyle='rgba(167,139,250,0.9)';
+      gctx.fillText(imgW+' × '+imgH+' px',rx+4,ry-6);
+      gctx.restore();
+    }
+
+    // Filename
+    gctx.save();gctx.font='12px JetBrains Mono';gctx.fillStyle='rgba(255,255,255,0.5)';
+    gctx.fillText(item.name,gelOffX+8,gelOffY+20);gctx.restore();
+  }
+
+  function gelRenderThumbs(){
+    const strip=$('gelThumbStrip');strip.innerHTML='';
+    gelImages.forEach((item,i)=>{
+      const div=document.createElement('div');
+      div.className='thumb'+(i===gelCurrentIdx?' active':'');
+      const img=document.createElement('img');img.src=item.img.src;div.appendChild(img);
+      const badge=document.createElement('div');
+      badge.className='badge badge-num';
+      badge.textContent=(i+1);div.appendChild(badge);
+      const rm=document.createElement('button');rm.className='rm';rm.textContent='×';
+      rm.onclick=function(e){
+        e.stopPropagation();gelImages.splice(i,1);
+        if(!gelImages.length){gelResetAll();return;}
+        if(gelCurrentIdx>=gelImages.length)gelCurrentIdx=gelImages.length-1;
+        selRect=null;gelShowCurrent();gelRenderThumbs();
+      };
+      div.appendChild(rm);
+      div.onclick=function(){gelCurrentIdx=i;selRect=null;gelShowCurrent();gelRenderThumbs();};
+      strip.appendChild(div);
+    });
+    const active=strip.querySelector('.active');
+    if(active) active.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+  }
+
+  function gelShowCurrent(){
+    const item=gelImages[gelCurrentIdx];if(!item)return;
+    requestAnimationFrame(()=>{gelComputeLayout(item.img);gelDraw();});
+  }
+
+  function gelAddFiles(files){
+    const arr=Array.from(files).filter(f=>f.type.startsWith('image/'));
+    if(!arr.length)return;
+    let loaded=0;
+    arr.forEach(file=>{
+      const reader=new FileReader();
+      reader.onload=function(ev){
+        const img=new Image();
+        img.onload=function(){
+          gelImages.push({file,img,name:file.name});
+          loaded++;
+          if(loaded===arr.length){
+            $('gelUploadOverlay').classList.add('hidden');
+            gelShowCurrent();gelRenderThumbs();
+          }
+        };
+        img.src=ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function gelCropSelection(){
+    if(!selRect)return null;
+    const item=gelImages[gelCurrentIdx];if(!item)return null;
+    const sx=Math.min(selRect.x1,selRect.x2),sy=Math.min(selRect.y1,selRect.y2);
+    const sw=Math.abs(selRect.x2-selRect.x1),sh=Math.abs(selRect.y2-selRect.y1);
+    if(sw<5||sh<5)return null;
+    const cv=document.createElement('canvas');
+    cv.width=Math.round(sw);cv.height=Math.round(sh);
+    cv.getContext('2d').drawImage(item.img,sx,sy,sw,sh,0,0,cv.width,cv.height);
+    return cv.toDataURL('image/png');
+  }
+
+  function gelRenderResults(){
+    const scroll=$('gelResultScroll');scroll.innerHTML='';
+    $('gelResultCount').textContent=gelResults.length+'장';
+    $('gelDownloadAllBtn').disabled=!gelResults.length;
+    if($('gelShareAllBtn')) $('gelShareAllBtn').disabled=!gelResults.length;
+
+    gelResults.forEach((res,i)=>{
+      const card=document.createElement('div');card.className='result-card';
+      const img=document.createElement('img');img.src=res.dataURL;
+      img.draggable=true;
+      img.addEventListener('dragstart',function(ev){
+        ev.dataTransfer.setData('text/uri-list',res.dataURL);
+        ev.dataTransfer.setData('text/plain',res.name);
+        ev.dataTransfer.effectAllowed='copy';
+      });
+      card.appendChild(img);
+      const info=document.createElement('div');info.className='card-info';
+      const nm=document.createElement('div');nm.className='card-name';
+      nm.textContent=res.name;info.appendChild(nm);
+
+      const actions=document.createElement('div');actions.className='card-actions';
+
+      const copyBtn=document.createElement('button');copyBtn.textContent='복사';
+      copyBtn.onclick=async function(){
+        try{
+          const resp=await fetch(res.dataURL);const blob=await resp.blob();
+          await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+          showToast('클립보드에 복사됨');
+        }catch(e){showToast('복사 실패');}
+      };
+      actions.appendChild(copyBtn);
+
+      const dlBtn=document.createElement('button');dlBtn.textContent='저장';
+      dlBtn.onclick=function(){
+        const a=document.createElement('a');a.href=res.dataURL;a.download=res.name;a.click();
+      };
+      actions.appendChild(dlBtn);
+
+      const delBtn=document.createElement('button');delBtn.textContent='삭제';
+      delBtn.onclick=function(){
+        gelResults.splice(i,1);gelRenderResults();
+      };
+      actions.appendChild(delBtn);
+
+      if(navigator.share){
+        const shareBtn=document.createElement('button');shareBtn.textContent='공유';
+        shareBtn.onclick=async function(){
+          try{
+            const resp=await fetch(res.dataURL);const blob=await resp.blob();
+            const file=new File([blob],res.name,{type:'image/png'});
+            if(navigator.canShare&&navigator.canShare({files:[file]})){
+              await navigator.share({files:[file],title:res.name});
+            } else {
+              const a=document.createElement('a');a.href=res.dataURL;a.download=res.name;a.click();
+              showToast('공유 불가 → 다운로드됨');
+            }
+          }catch(e){if(e.name!=='AbortError'){showToast('공유 실패');}}
+        };
+        actions.appendChild(shareBtn);
+      }
+
+      info.appendChild(actions);card.appendChild(info);scroll.appendChild(card);
+    });
+  }
+
+  function gelResetAll(){
+    gelImages=[];gelCurrentIdx=0;gelResults=[];selRect=null;selDrag=null;
+    $('gelUploadOverlay').classList.remove('hidden');
+    $('gelThumbStrip').innerHTML='';
+    $('gelResultScroll').innerHTML='<div style="color:var(--muted);font-size:11px;text-align:center;padding:40px 8px;line-height:1.6">이미지에서 영역을 선택한 후<br>"크롭 ✓" 버튼을 누르면<br>여기에 결과가 표시됩니다</div>';
+    $('gelResultCount').textContent='0장';
+    $('gelDownloadAllBtn').disabled=true;
+    $('gelCropBtn').disabled=true;
+    $('gelFileInput').value='';
+    gctx.clearRect(0,0,gelCanvas.width,gelCanvas.height);
+  }
+
+  // --- Events ---
+  $('gelFileInput').addEventListener('change',e=>gelAddFiles(e.target.files));
+  const gub=$('gelUploadBox');
+  gub.addEventListener('dragover',e=>{e.preventDefault();gub.classList.add('dragover')});
+  gub.addEventListener('dragleave',()=>gub.classList.remove('dragover'));
+  gub.addEventListener('drop',e=>{e.preventDefault();gub.classList.remove('dragover');gelAddFiles(e.dataTransfer.files)});
+
+  $('gelAddMoreBtn').addEventListener('click',()=>$('gelAddMoreInput').click());
+  $('gelAddMoreInput').addEventListener('change',e=>gelAddFiles(e.target.files));
+
+  $('gelSelectBtn').addEventListener('click',()=>{selectMode=true;});
+  $('gelClearSelBtn').addEventListener('click',()=>{selRect=null;$('gelCropBtn').disabled=true;gelDraw();});
+  $('gelResetBtn').addEventListener('click',gelResetAll);
+
+  $('gelCropBtn').addEventListener('click',()=>{
+    const dataURL=gelCropSelection();
+    if(!dataURL)return;
+    const now=new Date();
+    const ds=now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
+    const name=ds+'_gel'+(gelResults.length+1)+'.png';
+    gelResults.push({dataURL,name});
+    gelRenderResults();
+    showToast('크롭 완료');
+    selRect=null;$('gelCropBtn').disabled=true;gelDraw();
+  });
+
+  // Pointer events for rectangle selection
+  function getHandle(cx,cy){
+    if(!selRect)return null;
+    const x1=selRect.x1*gelScale+gelOffX,y1=selRect.y1*gelScale+gelOffY;
+    const x2=selRect.x2*gelScale+gelOffX,y2=selRect.y2*gelScale+gelOffY;
+    const corners=[
+      {name:'tl',x:Math.min(x1,x2),y:Math.min(y1,y2)},
+      {name:'tr',x:Math.max(x1,x2),y:Math.min(y1,y2)},
+      {name:'bl',x:Math.min(x1,x2),y:Math.max(y1,y2)},
+      {name:'br',x:Math.max(x1,x2),y:Math.max(y1,y2)},
+    ];
+    for(const c of corners){
+      if(Math.sqrt((cx-c.x)**2+(cy-c.y)**2)<12) return c.name;
+    }
+    // Check if inside
+    const rx=Math.min(x1,x2),ry=Math.min(y1,y2);
+    const rw=Math.abs(x2-x1),rh=Math.abs(y2-y1);
+    if(cx>=rx&&cx<=rx+rw&&cy>=ry&&cy<=ry+rh) return 'move';
+    return null;
+  }
+
+  gelCanvasArea.addEventListener('pointerdown',e=>{
+    if(!gelImages.length)return;
+    const rect=gelCanvasArea.getBoundingClientRect();
+    const cx=e.clientX,cy=e.clientY;
+    const handle=getHandle(cx,cy);
+
+    if(handle==='move'){
+      const pos=gelToImgCoords(cx,cy);
+      selDrag={type:'move',ox:pos.x-Math.min(selRect.x1,selRect.x2),oy:pos.y-Math.min(selRect.y1,selRect.y2),
+        w:Math.abs(selRect.x2-selRect.x1),h:Math.abs(selRect.y2-selRect.y1)};
+    } else if(handle){
+      selDrag={type:'resize',handle};
+    } else {
+      // New selection
+      const pos=gelToImgCoords(cx,cy);
+      selRect={x1:pos.x,y1:pos.y,x2:pos.x,y2:pos.y};
+      selDrag={type:'draw'};
+    }
+    gelCanvasArea.setPointerCapture(e.pointerId);
+  });
+
+  gelCanvasArea.addEventListener('pointermove',e=>{
+    if(!selDrag)return;
+    const pos=gelToImgCoords(e.clientX,e.clientY);
+    const item=gelImages[gelCurrentIdx];if(!item)return;
+    const iw=item.img.naturalWidth,ih=item.img.naturalHeight;
+    const px=Math.max(0,Math.min(iw,pos.x)),py=Math.max(0,Math.min(ih,pos.y));
+
+    if(selDrag.type==='draw'){
+      selRect.x2=px;selRect.y2=py;
+    } else if(selDrag.type==='move'){
+      let nx=px-selDrag.ox,ny=py-selDrag.oy;
+      nx=Math.max(0,Math.min(iw-selDrag.w,nx));
+      ny=Math.max(0,Math.min(ih-selDrag.h,ny));
+      selRect.x1=nx;selRect.y1=ny;
+      selRect.x2=nx+selDrag.w;selRect.y2=ny+selDrag.h;
+    } else if(selDrag.type==='resize'){
+      const h=selDrag.handle;
+      if(h.includes('l')) selRect.x1=px;
+      if(h.includes('r')) selRect.x2=px;
+      if(h.includes('t')) selRect.y1=py;
+      if(h.includes('b')) selRect.y2=py;
+    }
+    $('gelCropBtn').disabled=!selRect||Math.abs(selRect.x2-selRect.x1)<5||Math.abs(selRect.y2-selRect.y1)<5;
+    gelDraw();
+  });
+
+  gelCanvasArea.addEventListener('pointerup',()=>{selDrag=null;});
+  gelCanvasArea.addEventListener('pointerleave',()=>{selDrag=null;});
+
+  // Download all
+  $('gelDownloadAllBtn').addEventListener('click',()=>{
+    if(!gelResults.length)return;
+    let i=0;
+    function dlNext(){
+      if(i>=gelResults.length){showToast(gelResults.length+'장 다운로드 완료');return;}
+      const a=document.createElement('a');a.href=gelResults[i].dataURL;a.download=gelResults[i].name;a.click();
+      i++;setTimeout(dlNext,300);
+    }
+    dlNext();
+  });
+
+  // Share all
+  if(!navigator.share){const sa=$('gelShareAllBtn');if(sa) sa.style.display='none';}
+  $('gelShareAllBtn').addEventListener('click',async()=>{
+    if(!gelResults.length)return;
+    try{
+      const files=[];
+      for(const res of gelResults){
+        const resp=await fetch(res.dataURL);const blob=await resp.blob();
+        files.push(new File([blob],res.name,{type:'image/png'}));
+      }
+      if(navigator.canShare&&navigator.canShare({files})){
+        await navigator.share({files,title:'Gel Crops'});
+      } else {
+        $('gelDownloadAllBtn').click();
+      }
+    }catch(e){if(e.name!=='AbortError'){showToast('공유 불가 → 다운로드로 전환');$('gelDownloadAllBtn').click();}}
+  });
+
+  // Resizer
+  (function(){
+    const resizer=$('gelResizer'),rightPanel=$('gelRightPanel');
+    let startX,startW;
+    resizer.addEventListener('pointerdown',function(e){
+      e.preventDefault();startX=e.clientX;startW=rightPanel.offsetWidth;
+      resizer.classList.add('active');resizer.setPointerCapture(e.pointerId);
+    });
+    resizer.addEventListener('pointermove',function(e){
+      if(!resizer.classList.contains('active'))return;
+      const diff=startX-e.clientX;
+      const newW=Math.min(500,Math.max(120,startW+diff));
+      rightPanel.style.width=newW+'px';
+      const item=gelImages[gelCurrentIdx];
+      if(item&&item.img){gelComputeLayout(item.img);gelDraw();}
+    });
+    resizer.addEventListener('pointerup',function(){resizer.classList.remove('active')});
+    resizer.addEventListener('lostpointercapture',function(){resizer.classList.remove('active')});
+  })();
+
+  window.addEventListener('resize',()=>{
+    if(!gelImages.length)return;
+    const item=gelImages[gelCurrentIdx];if(!item)return;
+    gelComputeLayout(item.img);gelDraw();
   });
 })();
 </script>
