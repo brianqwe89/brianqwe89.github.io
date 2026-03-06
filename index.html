@@ -310,7 +310,7 @@
           <line x1="17.5" y1="6" x2="17.5" y2="18"/>
         </svg>
         <span style="font-size:16px;font-weight:700;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">겔 크롭</span>
-        <span style="color:var(--muted);font-size:11px">겔 이미지 영역 선택 & 크롭</span>
+        <span style="color:var(--muted);font-size:11px">겔 자동 감지 & 레인 크롭</span>
       </a>
     </div>
 
@@ -1137,109 +1137,202 @@
     setTimeout(()=>t.classList.remove('show'),1800);
   }
 
-  // --- Auto Detection: find gel lanes/bands using edge & intensity analysis ---
+  // --- Auto Detection: 2-phase approach ---
+  // Phase 1: Detect gel rectangle boundary (edge-based)
+  // Phase 2: Detect lanes within the gel (intensity profile)
   function detectGelRegions(img){
     const c=document.createElement('canvas');
-    const maxSz=400;
+    const maxSz=500;
     const sd=Math.min(maxSz/img.naturalWidth,maxSz/img.naturalHeight,1);
     const w=Math.round(img.naturalWidth*sd),h=Math.round(img.naturalHeight*sd);
     c.width=w;c.height=h;
     const cx=c.getContext('2d');cx.drawImage(img,0,0,w,h);
     const d=cx.getImageData(0,0,w,h).data;
 
-    // Convert to grayscale
+    // Grayscale
     const gray=new Float32Array(w*h);
     for(let i=0;i<w*h;i++) gray[i]=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2];
 
-    // Compute vertical edge strength (Sobel-x) per column
-    const colEdge=new Float32Array(w);
+    // --- Sobel edge magnitude ---
+    const edgeX=new Float32Array(w*h);
+    const edgeY=new Float32Array(w*h);
+    const edgeMag=new Float32Array(w*h);
+    for(let y=1;y<h-1;y++) for(let x=1;x<w-1;x++){
+      const gx=-gray[(y-1)*w+x-1]+gray[(y-1)*w+x+1]
+               -2*gray[y*w+x-1]+2*gray[y*w+x+1]
+               -gray[(y+1)*w+x-1]+gray[(y+1)*w+x+1];
+      const gy=-gray[(y-1)*w+x-1]-2*gray[(y-1)*w+x]-gray[(y-1)*w+x+1]
+               +gray[(y+1)*w+x-1]+2*gray[(y+1)*w+x]+gray[(y+1)*w+x+1];
+      edgeX[y*w+x]=gx;edgeY[y*w+x]=gy;
+      edgeMag[y*w+x]=Math.sqrt(gx*gx+gy*gy);
+    }
+
+    // --- Phase 1: Find gel rectangle ---
+    // Project horizontal edges (strong |gy|) onto Y axis → find top/bottom
+    const rowHEdge=new Float32Array(h);
+    for(let y=1;y<h-1;y++){
+      let sum=0;for(let x=1;x<w-1;x++) sum+=Math.abs(edgeY[y*w+x]);
+      rowHEdge[y]=sum/(w-2);
+    }
+    // Project vertical edges (strong |gx|) onto X axis → find left/right
+    const colVEdge=new Float32Array(w);
     for(let x=1;x<w-1;x++){
+      let sum=0;for(let y=1;y<h-1;y++) sum+=Math.abs(edgeX[y*w+x]);
+      colVEdge[x]=sum/(h-2);
+    }
+
+    // Smooth projections
+    function smooth(arr,k){
+      const out=new Float32Array(arr.length);
+      for(let i=k;i<arr.length-k;i++){
+        let s=0;for(let j=-k;j<=k;j++) s+=arr[i+j];
+        out[i]=s/(2*k+1);
+      }
+      return out;
+    }
+    const sRowH=smooth(rowHEdge,Math.max(2,Math.round(h*0.01)));
+    const sColV=smooth(colVEdge,Math.max(2,Math.round(w*0.01)));
+
+    // Find top two peaks in horizontal edge projection → gel top & bottom
+    function findTopNPeaks(arr,n,minDist){
+      let maxV=0;for(let i=0;i<arr.length;i++) if(arr[i]>maxV) maxV=arr[i];
+      const thr=maxV*0.2;
+      const candidates=[];
+      for(let i=2;i<arr.length-2;i++){
+        if(arr[i]>thr&&arr[i]>=arr[i-1]&&arr[i]>=arr[i+1]){
+          candidates.push({pos:i,val:arr[i]});
+        }
+      }
+      candidates.sort((a,b)=>b.val-a.val);
+      const picked=[];
+      for(const c of candidates){
+        if(picked.length>=n) break;
+        if(picked.every(p=>Math.abs(p.pos-c.pos)>=minDist)) picked.push(c);
+      }
+      picked.sort((a,b)=>a.pos-b.pos);
+      return picked.map(p=>p.pos);
+    }
+
+    const hPeaks=findTopNPeaks(sRowH,2,Math.round(h*0.15));
+    const vPeaks=findTopNPeaks(sColV,2,Math.round(w*0.15));
+
+    let gelTop=0,gelBot=h-1,gelLeft=0,gelRight=w-1;
+    if(hPeaks.length>=2){gelTop=hPeaks[0];gelBot=hPeaks[1];}
+    else if(hPeaks.length===1){
+      // one edge found, estimate other side
+      if(hPeaks[0]<h/2){gelTop=hPeaks[0];gelBot=h-Math.round(h*0.05);}
+      else{gelBot=hPeaks[0];gelTop=Math.round(h*0.05);}
+    }
+    if(vPeaks.length>=2){gelLeft=vPeaks[0];gelRight=vPeaks[1];}
+    else if(vPeaks.length===1){
+      if(vPeaks[0]<w/2){gelLeft=vPeaks[0];gelRight=w-Math.round(w*0.05);}
+      else{gelRight=vPeaks[0];gelLeft=Math.round(w*0.05);}
+    }
+
+    // Validate: gel should be a reasonable portion of the image
+    const gelW=gelRight-gelLeft,gelH=gelBot-gelTop;
+    if(gelW<w*0.15||gelH<h*0.15){
+      // Detection failed, use center 80%
+      gelLeft=Math.round(w*0.1);gelRight=Math.round(w*0.9);
+      gelTop=Math.round(h*0.1);gelBot=Math.round(h*0.9);
+    }
+
+    // Shrink slightly inward to avoid border artifacts
+    const insetX=Math.round(gelW*0.02),insetY=Math.round(gelH*0.02);
+    gelLeft+=insetX;gelRight-=insetX;gelTop+=insetY;gelBot-=insetY;
+
+    // --- Phase 2: Detect lanes within gel ---
+    // Analyze column intensity within gel area
+    // Bands are darker → lower intensity in those columns
+    const laneW=gelRight-gelLeft;
+    const laneH=gelBot-gelTop;
+    const colIntensity=new Float32Array(laneW);
+    for(let lx=0;lx<laneW;lx++){
+      const x=gelLeft+lx;
+      let sum=0,cnt=0;
+      for(let y=gelTop;y<gelBot;y++){
+        sum+=gray[y*w+x];cnt++;
+      }
+      colIntensity[lx]=sum/cnt;
+    }
+
+    // Smooth column intensity
+    const sCol=smooth(colIntensity,Math.max(1,Math.round(laneW*0.008)));
+
+    // Find local minima in intensity → lane centers (bands are darker)
+    // Also compute derivative to find lane boundaries
+    const deriv=new Float32Array(laneW);
+    for(let i=1;i<laneW-1;i++) deriv[i]=sCol[i+1]-sCol[i-1];
+    const sDeriv=smooth(deriv,Math.max(1,Math.round(laneW*0.01)));
+
+    // Find zero-crossings of derivative (negative→positive = minima = lane center)
+    const laneCenters=[];
+    let meanInt=0;for(let i=0;i<laneW;i++) meanInt+=sCol[i];meanInt/=laneW;
+    // Only consider columns darker than average (bands present)
+    for(let i=2;i<laneW-2;i++){
+      if(sDeriv[i-1]<0&&sDeriv[i+1]>0&&sCol[i]<meanInt){
+        laneCenters.push(gelLeft+i);
+      }
+    }
+
+    // Also look at vertical edge profile within gel to find lane separators
+    const gelColEdge=new Float32Array(laneW);
+    for(let lx=0;lx<laneW;lx++){
+      const x=gelLeft+lx;
       let sum=0;
-      for(let y=1;y<h-1;y++){
-        const gx=-gray[(y-1)*w+x-1]+gray[(y-1)*w+x+1]
-                 -2*gray[y*w+x-1]+2*gray[y*w+x+1]
-                 -gray[(y+1)*w+x-1]+gray[(y+1)*w+x+1];
-        sum+=Math.abs(gx);
-      }
-      colEdge[x]=sum/(h-2);
+      for(let y=gelTop+2;y<gelBot-2;y++) sum+=Math.abs(edgeX[y*w+x]);
+      gelColEdge[lx]=sum/(laneH-4);
     }
+    const sGelColEdge=smooth(gelColEdge,Math.max(1,Math.round(laneW*0.008)));
 
-    // Smooth column edge profile
-    const smooth=new Float32Array(w);
-    const kern=Math.max(2,Math.round(w*0.01));
-    for(let x=kern;x<w-kern;x++){
-      let s=0;for(let k=-kern;k<=kern;k++) s+=colEdge[x+k];
-      smooth[x]=s/(kern*2+1);
-    }
-
-    // Find peaks in edge profile (lane boundaries)
-    let maxVal=0;for(let x=0;x<w;x++) if(smooth[x]>maxVal) maxVal=smooth[x];
-    const peakThr=maxVal*0.3;
-    const peaks=[];
-    for(let x=3;x<w-3;x++){
-      if(smooth[x]>peakThr&&smooth[x]>=smooth[x-1]&&smooth[x]>=smooth[x+1]){
-        peaks.push(x);
+    // Find peaks in vertical edge within gel → lane boundaries
+    let maxGCE=0;for(let i=0;i<laneW;i++) if(sGelColEdge[i]>maxGCE) maxGCE=sGelColEdge[i];
+    const gceThr=maxGCE*0.25;
+    const laneBoundaries=[];
+    for(let i=3;i<laneW-3;i++){
+      if(sGelColEdge[i]>gceThr&&sGelColEdge[i]>=sGelColEdge[i-1]&&sGelColEdge[i]>=sGelColEdge[i+1]){
+        laneBoundaries.push(gelLeft+i);
       }
     }
-
-    // Merge close peaks
-    const minGap=Math.round(w*0.03);
-    const merged=[];
-    for(const p of peaks){
-      if(merged.length&&p-merged[merged.length-1]<minGap){
-        merged[merged.length-1]=Math.round((merged[merged.length-1]+p)/2);
-      } else merged.push(p);
+    // Merge close boundaries
+    const minBGap=Math.round(laneW*0.025);
+    const mergedBounds=[gelLeft];
+    for(const b of laneBoundaries){
+      if(b-mergedBounds[mergedBounds.length-1]>=minBGap) mergedBounds.push(b);
+      else mergedBounds[mergedBounds.length-1]=Math.round((mergedBounds[mergedBounds.length-1]+b)/2);
     }
+    mergedBounds.push(gelRight);
 
-    // Also detect horizontal bounds (top/bottom of gel content)
-    const rowIntensity=new Float32Array(h);
-    for(let y=0;y<h;y++){
-      let sum=0;for(let x=0;x<w;x++) sum+=gray[y*w+x];
-      rowIntensity[y]=sum/w;
-    }
-    // Find content region by looking for rows significantly different from the edges
-    const bgTop=rowIntensity[0],bgBot=rowIntensity[h-1];
-    const bgRef=Math.max(bgTop,bgBot);
-    const rowThr=bgRef*0.85;
-    let yTop=0,yBot=h-1;
-    for(let y=0;y<h;y++){if(rowIntensity[y]<rowThr){yTop=Math.max(0,y-2);break;}}
-    for(let y=h-1;y>=0;y--){if(rowIntensity[y]<rowThr){yBot=Math.min(h-1,y+2);break;}}
-    if(yBot<=yTop){yTop=0;yBot=h-1;}
-
-    // Build regions from lane boundaries
+    // Build lane regions from boundaries
     const regions=[];
-    if(merged.length>=2){
-      for(let i=0;i<merged.length-1;i++){
-        const x1=merged[i],x2=merged[i+1];
-        if(x2-x1>w*0.02){
+    const minLaneW=Math.round(laneW*0.03);
+    for(let i=0;i<mergedBounds.length-1;i++){
+      const x1=mergedBounds[i],x2=mergedBounds[i+1];
+      if(x2-x1>minLaneW){
+        // Check if this region has actual band content (darker than mean)
+        let regionInt=0,cnt=0;
+        for(let x=x1;x<x2;x++){
+          for(let y=gelTop;y<gelBot;y++){
+            regionInt+=gray[y*w+x];cnt++;
+          }
+        }
+        regionInt/=cnt;
+        // Include if darker than mean or if we have few regions
+        if(regionInt<meanInt*1.02||regions.length<2){
           regions.push({
-            x1:Math.round(x1/sd),y1:Math.round(yTop/sd),
-            x2:Math.round(x2/sd),y2:Math.round(yBot/sd)
+            x1:Math.round(x1/sd),y1:Math.round(gelTop/sd),
+            x2:Math.round(x2/sd),y2:Math.round(gelBot/sd)
           });
         }
       }
     }
 
-    // If no lanes detected, try to detect the overall gel area
+    // If no lanes found, return the whole gel as one region
     if(regions.length===0){
-      // Find content bounding box using column intensity
-      const colIntensity=new Float32Array(w);
-      for(let x=0;x<w;x++){
-        let sum=0;for(let y=0;y<h;y++) sum+=gray[y*w+x];
-        colIntensity[x]=sum/h;
-      }
-      const bgLeft=colIntensity[0],bgRight=colIntensity[w-1];
-      const bgRefC=Math.max(bgLeft,bgRight);
-      const colThr=bgRefC*0.85;
-      let xLeft=0,xRight=w-1;
-      for(let x=0;x<w;x++){if(colIntensity[x]<colThr){xLeft=Math.max(0,x-2);break;}}
-      for(let x=w-1;x>=0;x--){if(colIntensity[x]<colThr){xRight=Math.min(w-1,x+2);break;}}
-      if(xRight>xLeft+10){
-        regions.push({
-          x1:Math.round(xLeft/sd),y1:Math.round(yTop/sd),
-          x2:Math.round(xRight/sd),y2:Math.round(yBot/sd)
-        });
-      }
+      regions.push({
+        x1:Math.round(gelLeft/sd),y1:Math.round(gelTop/sd),
+        x2:Math.round(gelRight/sd),y2:Math.round(gelBot/sd)
+      });
     }
 
     return regions;
