@@ -297,7 +297,7 @@
           <path d="M6 6V4M18 6V4M6 18v2M18 18v2"/>
         </svg>
         <span style="font-size:16px;font-weight:700;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">플레이트 크롭</span>
-        <span style="color:var(--muted);font-size:11px">번호판 자동 감지 & 크롭</span>
+        <span style="color:var(--muted);font-size:11px">플레이트 자동 감지 & 크롭</span>
       </a>
 
       <a href="#gel" data-page="gel" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:16px;padding:32px 40px;border-radius:16px;background:var(--surface);border:2px solid var(--border);transition:all .2s;cursor:pointer;width:220px" onmouseover="this.style.borderColor='#a78bfa';this.style.transform='translateY(-4px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
@@ -542,10 +542,19 @@
 
 <!-- Toolbar -->
 <div class="toolbar" id="gelToolbar">
+  <span class="detecting hidden" id="gelDetectingLabel">● 감지 중</span>
+
   <div class="toolbar-group">
-    <button class="btn btn-outline btn-sm" id="gelSelectBtn" title="사각형 영역 선택">□ 영역 선택</button>
-    <button class="btn btn-primary btn-sm" id="gelCropBtn" disabled>크롭 ✓</button>
+    <button class="btn btn-outline btn-sm" id="gelAutoDetectBtn">자동 감지</button>
+    <button class="btn btn-outline btn-sm" id="gelSelectBtn" title="사각형 영역 선택">□ 수동 선택</button>
     <button class="btn btn-ghost btn-sm" id="gelClearSelBtn">선택 해제</button>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="toolbar-group">
+    <button class="btn btn-primary btn-sm" id="gelCropBtn" disabled>크롭 ✓</button>
+    <button class="btn btn-primary btn-sm" id="gelCropAllBtn" disabled>전체 크롭</button>
   </div>
 
   <div class="sep"></div>
@@ -1114,9 +1123,10 @@
   let gelCurrentIdx=0;
   let gelResults=[];
   let gelScale=1,gelOffX=0,gelOffY=0,gelDispW=0,gelDispH=0;
-  let selRect=null; // {x1,y1,x2,y2} in image coords
-  let selDrag=null; // null | {type:'draw'|'move'|'resize-*', ...}
-  let selectMode=true;
+  let selRect=null; // current active selection {x1,y1,x2,y2} in image coords
+  let detectedRects=[]; // auto-detected regions [{x1,y1,x2,y2},...]
+  let activeDetIdx=-1; // which detected rect is selected (-1 = manual/none)
+  let selDrag=null;
 
   const $=id=>document.getElementById(id);
   const gelCanvas=$('gelCanvas'),gctx=gelCanvas.getContext('2d');
@@ -1125,6 +1135,114 @@
   function showToast(msg){
     const t=$('toast');t.textContent=msg;t.classList.add('show');
     setTimeout(()=>t.classList.remove('show'),1800);
+  }
+
+  // --- Auto Detection: find gel lanes/bands using edge & intensity analysis ---
+  function detectGelRegions(img){
+    const c=document.createElement('canvas');
+    const maxSz=400;
+    const sd=Math.min(maxSz/img.naturalWidth,maxSz/img.naturalHeight,1);
+    const w=Math.round(img.naturalWidth*sd),h=Math.round(img.naturalHeight*sd);
+    c.width=w;c.height=h;
+    const cx=c.getContext('2d');cx.drawImage(img,0,0,w,h);
+    const d=cx.getImageData(0,0,w,h).data;
+
+    // Convert to grayscale
+    const gray=new Float32Array(w*h);
+    for(let i=0;i<w*h;i++) gray[i]=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2];
+
+    // Compute vertical edge strength (Sobel-x) per column
+    const colEdge=new Float32Array(w);
+    for(let x=1;x<w-1;x++){
+      let sum=0;
+      for(let y=1;y<h-1;y++){
+        const gx=-gray[(y-1)*w+x-1]+gray[(y-1)*w+x+1]
+                 -2*gray[y*w+x-1]+2*gray[y*w+x+1]
+                 -gray[(y+1)*w+x-1]+gray[(y+1)*w+x+1];
+        sum+=Math.abs(gx);
+      }
+      colEdge[x]=sum/(h-2);
+    }
+
+    // Smooth column edge profile
+    const smooth=new Float32Array(w);
+    const kern=Math.max(2,Math.round(w*0.01));
+    for(let x=kern;x<w-kern;x++){
+      let s=0;for(let k=-kern;k<=kern;k++) s+=colEdge[x+k];
+      smooth[x]=s/(kern*2+1);
+    }
+
+    // Find peaks in edge profile (lane boundaries)
+    let maxVal=0;for(let x=0;x<w;x++) if(smooth[x]>maxVal) maxVal=smooth[x];
+    const peakThr=maxVal*0.3;
+    const peaks=[];
+    for(let x=3;x<w-3;x++){
+      if(smooth[x]>peakThr&&smooth[x]>=smooth[x-1]&&smooth[x]>=smooth[x+1]){
+        peaks.push(x);
+      }
+    }
+
+    // Merge close peaks
+    const minGap=Math.round(w*0.03);
+    const merged=[];
+    for(const p of peaks){
+      if(merged.length&&p-merged[merged.length-1]<minGap){
+        merged[merged.length-1]=Math.round((merged[merged.length-1]+p)/2);
+      } else merged.push(p);
+    }
+
+    // Also detect horizontal bounds (top/bottom of gel content)
+    const rowIntensity=new Float32Array(h);
+    for(let y=0;y<h;y++){
+      let sum=0;for(let x=0;x<w;x++) sum+=gray[y*w+x];
+      rowIntensity[y]=sum/w;
+    }
+    // Find content region by looking for rows significantly different from the edges
+    const bgTop=rowIntensity[0],bgBot=rowIntensity[h-1];
+    const bgRef=Math.max(bgTop,bgBot);
+    const rowThr=bgRef*0.85;
+    let yTop=0,yBot=h-1;
+    for(let y=0;y<h;y++){if(rowIntensity[y]<rowThr){yTop=Math.max(0,y-2);break;}}
+    for(let y=h-1;y>=0;y--){if(rowIntensity[y]<rowThr){yBot=Math.min(h-1,y+2);break;}}
+    if(yBot<=yTop){yTop=0;yBot=h-1;}
+
+    // Build regions from lane boundaries
+    const regions=[];
+    if(merged.length>=2){
+      for(let i=0;i<merged.length-1;i++){
+        const x1=merged[i],x2=merged[i+1];
+        if(x2-x1>w*0.02){
+          regions.push({
+            x1:Math.round(x1/sd),y1:Math.round(yTop/sd),
+            x2:Math.round(x2/sd),y2:Math.round(yBot/sd)
+          });
+        }
+      }
+    }
+
+    // If no lanes detected, try to detect the overall gel area
+    if(regions.length===0){
+      // Find content bounding box using column intensity
+      const colIntensity=new Float32Array(w);
+      for(let x=0;x<w;x++){
+        let sum=0;for(let y=0;y<h;y++) sum+=gray[y*w+x];
+        colIntensity[x]=sum/h;
+      }
+      const bgLeft=colIntensity[0],bgRight=colIntensity[w-1];
+      const bgRefC=Math.max(bgLeft,bgRight);
+      const colThr=bgRefC*0.85;
+      let xLeft=0,xRight=w-1;
+      for(let x=0;x<w;x++){if(colIntensity[x]<colThr){xLeft=Math.max(0,x-2);break;}}
+      for(let x=w-1;x>=0;x--){if(colIntensity[x]<colThr){xRight=Math.min(w-1,x+2);break;}}
+      if(xRight>xLeft+10){
+        regions.push({
+          x1:Math.round(xLeft/sd),y1:Math.round(yTop/sd),
+          x2:Math.round(xRight/sd),y2:Math.round(yBot/sd)
+        });
+      }
+    }
+
+    return regions;
   }
 
   function gelComputeLayout(img){
@@ -1142,6 +1260,30 @@
     return{x:(cx-rect.left-gelOffX)/gelScale,y:(cy-rect.top-gelOffY)/gelScale};
   }
 
+  function drawRect(r,color,label){
+    const x1=r.x1*gelScale+gelOffX,y1=r.y1*gelScale+gelOffY;
+    const x2=r.x2*gelScale+gelOffX,y2=r.y2*gelScale+gelOffY;
+    const rx=Math.min(x1,x2),ry=Math.min(y1,y2);
+    const rw=Math.abs(x2-x1),rh=Math.abs(y2-y1);
+
+    gctx.save();gctx.setLineDash([6,4]);
+    gctx.strokeStyle=color;gctx.lineWidth=2;
+    gctx.strokeRect(rx,ry,rw,rh);gctx.restore();
+
+    // Corner handles
+    [[rx,ry],[rx+rw,ry],[rx,ry+rh],[rx+rw,ry+rh]].forEach(([hx,hy])=>{
+      gctx.beginPath();gctx.arc(hx,hy,5,0,Math.PI*2);
+      gctx.fillStyle=color;gctx.fill();
+      gctx.strokeStyle='#0a0f14';gctx.lineWidth=1.5;gctx.stroke();
+    });
+
+    if(label){
+      gctx.save();gctx.font='11px JetBrains Mono';
+      gctx.fillStyle=color;
+      gctx.fillText(label,rx+4,ry-6);gctx.restore();
+    }
+  }
+
   function gelDraw(){
     const item=gelImages[gelCurrentIdx];
     if(!item||!item.img)return;
@@ -1149,7 +1291,14 @@
     gctx.clearRect(0,0,cw,ch);
     gctx.drawImage(item.img,gelOffX,gelOffY,gelDispW,gelDispH);
 
-    // Draw selection rectangle
+    // Draw all detected regions (dimmed)
+    detectedRects.forEach((r,i)=>{
+      if(i===activeDetIdx) return; // draw active one last
+      const color='rgba(167,139,250,0.5)';
+      drawRect(r,color,(i+1)+'');
+    });
+
+    // Draw active selection (either detected or manual)
     if(selRect){
       const x1=selRect.x1*gelScale+gelOffX,y1=selRect.y1*gelScale+gelOffY;
       const x2=selRect.x2*gelScale+gelOffX,y2=selRect.y2*gelScale+gelOffY;
@@ -1158,40 +1307,28 @@
 
       // Dim outside
       gctx.save();
-      gctx.fillStyle='rgba(0,0,0,0.45)';
+      gctx.fillStyle='rgba(0,0,0,0.4)';
       gctx.fillRect(0,0,cw,ry);
       gctx.fillRect(0,ry,rx,rh);
       gctx.fillRect(rx+rw,ry,cw-rx-rw,rh);
       gctx.fillRect(0,ry+rh,cw,ch-ry-rh);
       gctx.restore();
 
-      // Selection border
-      gctx.save();
-      gctx.setLineDash([6,4]);
-      gctx.strokeStyle='#a78bfa';gctx.lineWidth=2;
-      gctx.strokeRect(rx,ry,rw,rh);
-      gctx.restore();
-
-      // Corner handles
-      const handles=[[rx,ry],[rx+rw,ry],[rx,ry+rh],[rx+rw,ry+rh]];
-      handles.forEach(([hx,hy])=>{
-        gctx.beginPath();gctx.arc(hx,hy,6,0,Math.PI*2);
-        gctx.fillStyle='#f472b6';gctx.fill();
-        gctx.strokeStyle='#0a0f14';gctx.lineWidth=2;gctx.stroke();
-      });
-
-      // Size label
       const imgW=Math.round(Math.abs(selRect.x2-selRect.x1));
       const imgH=Math.round(Math.abs(selRect.y2-selRect.y1));
-      gctx.save();gctx.font='11px JetBrains Mono';
-      gctx.fillStyle='rgba(167,139,250,0.9)';
-      gctx.fillText(imgW+' × '+imgH+' px',rx+4,ry-6);
-      gctx.restore();
+      const label=(activeDetIdx>=0?(activeDetIdx+1)+': ':'')+imgW+' × '+imgH+' px';
+      drawRect(selRect,'#a78bfa',label);
     }
 
     // Filename
     gctx.save();gctx.font='12px JetBrains Mono';gctx.fillStyle='rgba(255,255,255,0.5)';
     gctx.fillText(item.name,gelOffX+8,gelOffY+20);gctx.restore();
+  }
+
+  function updateButtons(){
+    const hasSelection=selRect&&Math.abs(selRect.x2-selRect.x1)>5&&Math.abs(selRect.y2-selRect.y1)>5;
+    $('gelCropBtn').disabled=!hasSelection;
+    $('gelCropAllBtn').disabled=detectedRects.length===0;
   }
 
   function gelRenderThumbs(){
@@ -1201,17 +1338,22 @@
       div.className='thumb'+(i===gelCurrentIdx?' active':'');
       const img=document.createElement('img');img.src=item.img.src;div.appendChild(img);
       const badge=document.createElement('div');
-      badge.className='badge badge-num';
-      badge.textContent=(i+1);div.appendChild(badge);
+      badge.className='badge '+(item.detected?'badge-done':'badge-num');
+      badge.textContent=item.detected?'✓':(i+1);div.appendChild(badge);
       const rm=document.createElement('button');rm.className='rm';rm.textContent='×';
       rm.onclick=function(e){
         e.stopPropagation();gelImages.splice(i,1);
         if(!gelImages.length){gelResetAll();return;}
         if(gelCurrentIdx>=gelImages.length)gelCurrentIdx=gelImages.length-1;
-        selRect=null;gelShowCurrent();gelRenderThumbs();
+        selRect=null;detectedRects=[];activeDetIdx=-1;
+        gelShowCurrent();gelRenderThumbs();
       };
       div.appendChild(rm);
-      div.onclick=function(){gelCurrentIdx=i;selRect=null;gelShowCurrent();gelRenderThumbs();};
+      div.onclick=function(){
+        gelCurrentIdx=i;selRect=null;activeDetIdx=-1;
+        detectedRects=item.regions||[];
+        gelShowCurrent();gelRenderThumbs();updateButtons();
+      };
       strip.appendChild(div);
     });
     const active=strip.querySelector('.active');
@@ -1220,7 +1362,8 @@
 
   function gelShowCurrent(){
     const item=gelImages[gelCurrentIdx];if(!item)return;
-    requestAnimationFrame(()=>{gelComputeLayout(item.img);gelDraw();});
+    detectedRects=item.regions||[];
+    requestAnimationFrame(()=>{gelComputeLayout(item.img);gelDraw();updateButtons();});
   }
 
   function gelAddFiles(files){
@@ -1232,7 +1375,7 @@
       reader.onload=function(ev){
         const img=new Image();
         img.onload=function(){
-          gelImages.push({file,img,name:file.name});
+          gelImages.push({file,img,name:file.name,regions:[],detected:false});
           loaded++;
           if(loaded===arr.length){
             $('gelUploadOverlay').classList.add('hidden');
@@ -1245,11 +1388,9 @@
     });
   }
 
-  function gelCropSelection(){
-    if(!selRect)return null;
-    const item=gelImages[gelCurrentIdx];if(!item)return null;
-    const sx=Math.min(selRect.x1,selRect.x2),sy=Math.min(selRect.y1,selRect.y2);
-    const sw=Math.abs(selRect.x2-selRect.x1),sh=Math.abs(selRect.y2-selRect.y1);
+  function gelCropRect(item,r){
+    const sx=Math.min(r.x1,r.x2),sy=Math.min(r.y1,r.y2);
+    const sw=Math.abs(r.x2-r.x1),sh=Math.abs(r.y2-r.y1);
     if(sw<5||sh<5)return null;
     const cv=document.createElement('canvas');
     cv.width=Math.round(sw);cv.height=Math.round(sh);
@@ -1324,12 +1465,14 @@
 
   function gelResetAll(){
     gelImages=[];gelCurrentIdx=0;gelResults=[];selRect=null;selDrag=null;
+    detectedRects=[];activeDetIdx=-1;
     $('gelUploadOverlay').classList.remove('hidden');
     $('gelThumbStrip').innerHTML='';
     $('gelResultScroll').innerHTML='<div style="color:var(--muted);font-size:11px;text-align:center;padding:40px 8px;line-height:1.6">이미지에서 영역을 선택한 후<br>"크롭 ✓" 버튼을 누르면<br>여기에 결과가 표시됩니다</div>';
     $('gelResultCount').textContent='0장';
     $('gelDownloadAllBtn').disabled=true;
     $('gelCropBtn').disabled=true;
+    $('gelCropAllBtn').disabled=true;
     $('gelFileInput').value='';
     gctx.clearRect(0,0,gelCanvas.width,gelCanvas.height);
   }
@@ -1344,12 +1487,38 @@
   $('gelAddMoreBtn').addEventListener('click',()=>$('gelAddMoreInput').click());
   $('gelAddMoreInput').addEventListener('change',e=>gelAddFiles(e.target.files));
 
-  $('gelSelectBtn').addEventListener('click',()=>{selectMode=true;});
-  $('gelClearSelBtn').addEventListener('click',()=>{selRect=null;$('gelCropBtn').disabled=true;gelDraw();});
+  // Auto detect
+  $('gelAutoDetectBtn').addEventListener('click',()=>{
+    const item=gelImages[gelCurrentIdx];if(!item)return;
+    $('gelDetectingLabel').classList.remove('hidden');
+    setTimeout(()=>{
+      const regions=detectGelRegions(item.img);
+      item.regions=regions;
+      item.detected=true;
+      detectedRects=regions;
+      activeDetIdx=-1;selRect=null;
+      if(regions.length>0){
+        activeDetIdx=0;
+        selRect={...regions[0]};
+      }
+      $('gelDetectingLabel').classList.add('hidden');
+      gelDraw();gelRenderThumbs();updateButtons();
+      showToast(regions.length+'개 영역 감지됨');
+    },30);
+  });
+
+  $('gelSelectBtn').addEventListener('click',()=>{activeDetIdx=-1;selRect=null;gelDraw();updateButtons();});
+  $('gelClearSelBtn').addEventListener('click',()=>{
+    selRect=null;activeDetIdx=-1;
+    updateButtons();gelDraw();
+  });
   $('gelResetBtn').addEventListener('click',gelResetAll);
 
+  // Crop single selection
   $('gelCropBtn').addEventListener('click',()=>{
-    const dataURL=gelCropSelection();
+    if(!selRect)return;
+    const item=gelImages[gelCurrentIdx];if(!item)return;
+    const dataURL=gelCropRect(item,selRect);
     if(!dataURL)return;
     const now=new Date();
     const ds=now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
@@ -1357,10 +1526,36 @@
     gelResults.push({dataURL,name});
     gelRenderResults();
     showToast('크롭 완료');
-    selRect=null;$('gelCropBtn').disabled=true;gelDraw();
+    // Move to next detected region
+    if(activeDetIdx>=0&&activeDetIdx<detectedRects.length-1){
+      activeDetIdx++;
+      selRect={...detectedRects[activeDetIdx]};
+      gelDraw();updateButtons();
+    } else {
+      selRect=null;activeDetIdx=-1;gelDraw();updateButtons();
+    }
   });
 
-  // Pointer events for rectangle selection
+  // Crop all detected regions
+  $('gelCropAllBtn').addEventListener('click',()=>{
+    const item=gelImages[gelCurrentIdx];if(!item)return;
+    if(!detectedRects.length)return;
+    const now=new Date();
+    const ds=now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
+    let count=0;
+    detectedRects.forEach(r=>{
+      const dataURL=gelCropRect(item,r);
+      if(dataURL){
+        gelResults.push({dataURL,name:ds+'_gel'+(gelResults.length+1)+'.png'});
+        count++;
+      }
+    });
+    gelRenderResults();
+    selRect=null;activeDetIdx=-1;gelDraw();updateButtons();
+    showToast(count+'개 영역 크롭 완료');
+  });
+
+  // Pointer events for rectangle selection & detected rect clicking
   function getHandle(cx,cy){
     if(!selRect)return null;
     const x1=selRect.x1*gelScale+gelOffX,y1=selRect.y1*gelScale+gelOffY;
@@ -1374,16 +1569,24 @@
     for(const c of corners){
       if(Math.sqrt((cx-c.x)**2+(cy-c.y)**2)<12) return c.name;
     }
-    // Check if inside
     const rx=Math.min(x1,x2),ry=Math.min(y1,y2);
     const rw=Math.abs(x2-x1),rh=Math.abs(y2-y1);
     if(cx>=rx&&cx<=rx+rw&&cy>=ry&&cy<=ry+rh) return 'move';
     return null;
   }
 
+  function hitTestDetectedRect(imgPos){
+    for(let i=0;i<detectedRects.length;i++){
+      const r=detectedRects[i];
+      const rx=Math.min(r.x1,r.x2),ry=Math.min(r.y1,r.y2);
+      const rw=Math.abs(r.x2-r.x1),rh=Math.abs(r.y2-r.y1);
+      if(imgPos.x>=rx&&imgPos.x<=rx+rw&&imgPos.y>=ry&&imgPos.y<=ry+rh) return i;
+    }
+    return -1;
+  }
+
   gelCanvasArea.addEventListener('pointerdown',e=>{
     if(!gelImages.length)return;
-    const rect=gelCanvasArea.getBoundingClientRect();
     const cx=e.clientX,cy=e.clientY;
     const handle=getHandle(cx,cy);
 
@@ -1394,10 +1597,22 @@
     } else if(handle){
       selDrag={type:'resize',handle};
     } else {
-      // New selection
+      // Check if clicking a detected rect
       const pos=gelToImgCoords(cx,cy);
-      selRect={x1:pos.x,y1:pos.y,x2:pos.x,y2:pos.y};
-      selDrag={type:'draw'};
+      const hitIdx=hitTestDetectedRect(pos);
+      if(hitIdx>=0){
+        activeDetIdx=hitIdx;
+        selRect={...detectedRects[hitIdx]};
+        gelDraw();updateButtons();
+        // Allow dragging immediately
+        selDrag={type:'move',ox:pos.x-Math.min(selRect.x1,selRect.x2),oy:pos.y-Math.min(selRect.y1,selRect.y2),
+          w:Math.abs(selRect.x2-selRect.x1),h:Math.abs(selRect.y2-selRect.y1)};
+      } else {
+        // New manual selection
+        activeDetIdx=-1;
+        selRect={x1:pos.x,y1:pos.y,x2:pos.x,y2:pos.y};
+        selDrag={type:'draw'};
+      }
     }
     gelCanvasArea.setPointerCapture(e.pointerId);
   });
@@ -1424,8 +1639,9 @@
       if(h.includes('t')) selRect.y1=py;
       if(h.includes('b')) selRect.y2=py;
     }
-    $('gelCropBtn').disabled=!selRect||Math.abs(selRect.x2-selRect.x1)<5||Math.abs(selRect.y2-selRect.y1)<5;
-    gelDraw();
+    // Sync back to detected rects if editing one
+    if(activeDetIdx>=0&&selRect) detectedRects[activeDetIdx]={...selRect};
+    updateButtons();gelDraw();
   });
 
   gelCanvasArea.addEventListener('pointerup',()=>{selDrag=null;});
